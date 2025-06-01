@@ -13,7 +13,7 @@ CREATE TABLE credit_cards (
     brand VARCHAR(50),
     last4 CHAR(4),
     exp_month INT,
-    exp_year INT,
+    exp_year INT
 );
 
 CREATE TABLE products (
