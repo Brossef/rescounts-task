@@ -34,7 +34,6 @@ CREATE TABLE purchases (
   purchased_at TIMESTAMP DEFAULT NOW()
 );
 
-
 CREATE TABLE admins (
     user_id INT PRIMARY KEY REFERENCES users(id)
 );
