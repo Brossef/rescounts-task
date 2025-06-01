@@ -24,7 +24,7 @@ func main() {
 	dsn := "host=db port=5432 user=rescounts_user password=rescounts_pass dbname=rescounts_db sslmode=disable"
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		log.Fatal("Error with sql db :(")
+		log.Fatal("Error with sql db :(", err)
 	}
 	defer db.Close()
 }
