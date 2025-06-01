@@ -15,7 +15,7 @@ func main() {
 
 	r.HandleFunc("/check", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		w.Write([]byte("Hello world!"))
 	}).Methods("GET")
 
 	fmt.Println("Listening on :8080")
