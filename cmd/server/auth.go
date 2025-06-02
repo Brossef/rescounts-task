@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"context"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lib/pq"
@@ -84,7 +86,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	// Insert into users table
 	var newUserID int
 	query := `
-		INSERT INTO users (username, email, password_hash)
+		INSERT INTO users (username, email, password)
 		VALUES ($1, $2, $3)
 		RETURNING id;
 	`
@@ -131,7 +133,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		username   string
 	)
 	query := `
-		SELECT id, username, password_hash
+		SELECT id, username, password
 		FROM users
 		WHERE email = $1;
 	`
@@ -164,4 +166,28 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(loginResponse{
 		Token: tokenString,
 	})
+}
+func jwtMiddleware(next http.Handler) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    authHeader := r.Header.Get("Authorization")
+    if !strings.HasPrefix(authHeader, "Bearer ") {
+      http.Error(w, "Missing token", http.StatusUnauthorized)
+      return
+    }
+    tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+    secret := []byte(os.Getenv("JWT_SECRET"))
+
+    token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, func(token *jwt.Token) (interface{}, error) {
+      return secret, nil
+    })
+    if err != nil || !token.Valid {
+      http.Error(w, "Invalid token", http.StatusUnauthorized)
+      return
+    }
+
+    claims := token.Claims.(*jwtClaims)
+    // You can store userID in context for handlers to read:
+    ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
+    next.ServeHTTP(w, r.WithContext(ctx))
+  })
 }
