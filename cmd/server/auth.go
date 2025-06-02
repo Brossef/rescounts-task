@@ -18,7 +18,7 @@ type signupRequest struct {
 	Password string `json:"password"`
 }
 
-// signupResponse is what we return after successful signup.
+// signupResponse is returned after successful signup.
 type signupResponse struct {
 	ID       int    `json:"id"`
 	Username string `json:"username"`
@@ -36,10 +36,6 @@ type loginResponse struct {
 	Token string `json:"token"`
 }
 
-// ------------------
-// 2. JWT Helpers
-// ------------------
-
 // jwtClaims defines the JWT payload.
 type jwtClaims struct {
 	UserID   int    `json:"user_id"`
@@ -47,7 +43,7 @@ type jwtClaims struct {
 	jwt.RegisteredClaims
 }
 
-// createJWT creates a signed token with a 24h expiry.
+// createJWT creates a signed token.
 func createJWT(userID int, username string) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	claims := jwtClaims{
@@ -63,12 +59,8 @@ func createJWT(userID int, username string) (string, error) {
 	return token.SignedString(secret)
 }
 
-// ------------------
-// 3. signupHandler
-// ------------------
-
 func signupHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decode JSON
+	// Decode JSON
 	var req signupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
@@ -76,20 +68,20 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// 2. Basic validation
+	// Basic validation
 	if req.Username == "" || req.Email == "" || req.Password == "" {
 		http.Error(w, "username, email, and password are required", http.StatusBadRequest)
 		return
 	}
 
-	// 3. Hash password
+	// Hash password
 	hashedPw, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
 		return
 	}
 
-	// 4. Insert into users table
+	// Insert into users table
 	var newUserID int
 	query := `
 		INSERT INTO users (username, email, password_hash)
@@ -107,7 +99,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 5. Return JSON (you could also auto-login and return a token here)
+	// Return JSON
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(signupResponse{
@@ -117,12 +109,8 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ------------------
-// 4. loginHandler
-// ------------------
-
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decode JSON
+	// Decode JSON
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
@@ -130,13 +118,13 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// 2. Basic validation
+	// Basic validation
 	if req.Email == "" || req.Password == "" {
 		http.Error(w, "email and password are required", http.StatusBadRequest)
 		return
 	}
 
-	// 3. Fetch user row by email
+	// Fetch user row by email
 	var (
 		storedHash string
 		userID     int
@@ -157,21 +145,21 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Compare password
+	// Compare password
 	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(req.Password)); err != nil {
 		// wrong password
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	// 5. Create JWT
+	// Create JWT
 	tokenString, err := createJWT(userID, username)
 	if err != nil {
 		http.Error(w, "Failed to create token", http.StatusInternalServerError)
 		return
 	}
 
-	// 6. Return JSON with token
+	// Return JSON with token
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(loginResponse{
 		Token: tokenString,
