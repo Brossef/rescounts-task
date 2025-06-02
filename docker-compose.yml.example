@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres
+    container_name: rescounts-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rescounts_user
+      POSTGRES_PASSWORD: rescounts_pass
+      POSTGRES_DB: rescounts_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  server:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: rescounts_user
+      DB_PASSWORD: rescounts_pass
+      DB_NAME: rescounts_db
+      STRIPE_SECRET_KEY: "your_stripe_secret_key"
+      JWT_SECRET: "your_jwt_secret_here"
+
+
+volumes:
+  postgres_data:
+
+
