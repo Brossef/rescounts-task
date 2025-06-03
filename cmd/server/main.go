@@ -77,6 +77,11 @@ func main() {
 	).Methods("GET")
 
 	r.Handle(
+		"/admin/sales",
+		jwtMiddleware(adminMiddleware(http.HandlerFunc(getSalesHandler))),
+	).Methods("GET")
+
+	r.Handle(
 		"/users/creditcards",
 		jwtMiddleware(http.HandlerFunc(addCreditCardHandler)),
 	).Methods("POST")

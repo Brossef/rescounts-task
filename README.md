@@ -60,8 +60,11 @@ Testing with Postman:
   GET /products
   POST /users/buy
   GET /users/history
-  (Admin only: POST/PUT/DELETE /admin/products)
+  (Admin only: POST/PUT/DELETE /admin/products /admin/sales)
 
 Notes:
 - Ensure JWT tokens are passed in Authorization headers: "Bearer <token>".
 - Use Stripe test card "pm_card_visa" to create PaymentMethods.
+
+Postman collection for testing the API endpoints:
+https://.postman.co/workspace/My-Workspace~61498fee-56fb-46b3-8468-f0f8e28a7135/collection/45502323-6c201d3f-c6a9-4555-9183-502f4e4e90b6?action=share&creator=45502323
