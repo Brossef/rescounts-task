@@ -1,13 +1,13 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
 	"os"
-	"time"
-	"context"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lib/pq"
@@ -120,7 +120,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// Basic validation
+	// validation
 	if req.Email == "" || req.Password == "" {
 		http.Error(w, "email and password are required", http.StatusBadRequest)
 		return
@@ -168,26 +168,26 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 func jwtMiddleware(next http.Handler) http.Handler {
-  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-    authHeader := r.Header.Get("Authorization")
-    if !strings.HasPrefix(authHeader, "Bearer ") {
-      http.Error(w, "Missing token", http.StatusUnauthorized)
-      return
-    }
-    tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-    secret := []byte(os.Getenv("JWT_SECRET"))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			http.Error(w, "Missing token", http.StatusUnauthorized)
+			return
+		}
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		secret := []byte(os.Getenv("JWT_SECRET"))
 
-    token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, func(token *jwt.Token) (interface{}, error) {
-      return secret, nil
-    })
-    if err != nil || !token.Valid {
-      http.Error(w, "Invalid token", http.StatusUnauthorized)
-      return
-    }
+		token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, func(token *jwt.Token) (interface{}, error) {
+			return secret, nil
+		})
+		if err != nil || !token.Valid {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
 
-    claims := token.Claims.(*jwtClaims)
-    // You can store userID in context for handlers to read:
-    ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
-    next.ServeHTTP(w, r.WithContext(ctx))
-  })
+		claims := token.Claims.(*jwtClaims)
+		// store userID in context for handlers to read
+		ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }

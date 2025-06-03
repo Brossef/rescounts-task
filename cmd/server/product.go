@@ -17,7 +17,7 @@ type Product struct {
 }
 
 func listProductsHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Query the DB
+	// Query the DB
 	rows, err := db.Query(`
     SELECT id, name, description, price_cents
     FROM products
@@ -29,7 +29,7 @@ func listProductsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	// 2. Build a slice of Product
+	// Build a slice of Product
 	products := make([]Product, 0)
 
 	for rows.Next() {
@@ -45,13 +45,13 @@ func listProductsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Return as JSON
+	// Return as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(products)
 }
 
 func createProductHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decode JSON body into a Product struct (minus ID)
+	// Decode JSON body into a Product struct
 	var payload struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
@@ -63,13 +63,13 @@ func createProductHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// 2. Basic validation
+	// Basic validation
 	if payload.Name == "" || payload.PriceCents <= 0 {
 		http.Error(w, "name and price_cents are required (price_cents > 0)", http.StatusBadRequest)
 		return
 	}
 
-	// 3. Insert into products
+	// Insert into products
 	var newID int
 	err := db.QueryRow(
 		`INSERT INTO products (name, description, price_cents)
@@ -82,7 +82,7 @@ func createProductHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Return the created product (including new ID)
+	// Return the created product (including new ID)
 	newProduct := Product{
 		ID:          newID,
 		Name:        payload.Name,
@@ -95,7 +95,7 @@ func createProductHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateProductHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Extract {id} from URL
+	// Extract {id} from URL
 	vars := mux.Vars(r)
 	idStr := vars["id"]
 	prodID, err := strconv.Atoi(idStr)
@@ -104,7 +104,7 @@ func updateProductHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Decode JSON payload (same fields as create)
+	// Decode JSON payload (same fields as create)
 	var payload struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
@@ -116,13 +116,13 @@ func updateProductHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// 3. Basic validation
+	// Basic validation
 	if payload.Name == "" || payload.PriceCents <= 0 {
 		http.Error(w, "name and price_cents are required (price_cents > 0)", http.StatusBadRequest)
 		return
 	}
 
-	// 4. Run UPDATE
+	// UPDATE Query
 	res, err := db.Exec(
 		`UPDATE products
        SET name = $1, description = $2, price_cents = $3
@@ -144,7 +144,7 @@ func updateProductHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 5. Return 200 OK with the updated product
+	// Return 200 OK with the updated product
 	updated := Product{
 		ID:          prodID,
 		Name:        payload.Name,
@@ -156,7 +156,7 @@ func updateProductHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteProductHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Extract {id} from URL
+	// Extract {id} from URL
 	vars := mux.Vars(r)
 	idStr := vars["id"]
 	prodID, err := strconv.Atoi(idStr)
@@ -165,7 +165,7 @@ func deleteProductHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Run DELETE
+	// Run DELETE Query
 	res, err := db.Exec(`DELETE FROM products WHERE id = $1;`, prodID)
 	if err != nil {
 		http.Error(w, "Failed to delete product", http.StatusInternalServerError)
@@ -182,6 +182,6 @@ func deleteProductHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Return 204 No Content
+	// Return 204 No Content
 	w.WriteHeader(http.StatusNoContent)
 }

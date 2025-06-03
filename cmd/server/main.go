@@ -32,7 +32,6 @@ func main() {
 		log.Fatal("cannot connect to database:", err)
 	}
 	defer db.Close()
-	// dsn := "host=db port=5432 user=rescounts_user password=rescounts_pass dbname=rescounts_db sslmode=disable"
 
 	stripeKey := os.Getenv("STRIPE_SECRET_KEY")
 	if stripeKey == "" {
@@ -50,7 +49,8 @@ func main() {
 	r.HandleFunc("/signup", signupHandler).Methods("POST")
 	r.HandleFunc("/login", loginHandler).Methods("POST")
 	r.Handle("/products", jwtMiddleware(http.HandlerFunc(listProductsHandler))).Methods("GET")
-	// Admin-only routes (must pass through JWT → adminMiddleware):
+
+	// Admin-only routes (through JWT -> adminMiddleware):
 	r.Handle(
 		"/admin/products",
 		jwtMiddleware(adminMiddleware(http.HandlerFunc(createProductHandler))),
@@ -65,6 +65,16 @@ func main() {
 		"/admin/products/{id}",
 		jwtMiddleware(adminMiddleware(http.HandlerFunc(deleteProductHandler))),
 	).Methods("DELETE")
+
+	r.Handle(
+		"/users/buy",
+		jwtMiddleware(http.HandlerFunc(buyProductsHandler)),
+	).Methods("POST")
+
+	r.Handle(
+		"/users/history",
+		jwtMiddleware(http.HandlerFunc(getUserHistoryHandler)),
+	).Methods("GET")
 
 	r.Handle(
 		"/users/creditcards",

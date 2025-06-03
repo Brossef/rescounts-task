@@ -6,7 +6,7 @@ import (
 
 func adminMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 1. Extract user_id from context
+		// Extract user_id from context
 		uidVal := r.Context().Value("user_id")
 		if uidVal == nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -18,7 +18,7 @@ func adminMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// 2. Check if user_id exists in `admins` table
+		// Check if user_id exists in `admins` table
 		var exists bool
 		err := db.QueryRow(
 			`SELECT EXISTS(SELECT 1 FROM admins WHERE user_id = $1);`,
@@ -34,7 +34,7 @@ func adminMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// 3. If OK, pass along to next handler
+		// pass along to next handler
 		next.ServeHTTP(w, r)
 	})
 }

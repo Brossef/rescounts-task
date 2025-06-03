@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -20,7 +21,7 @@ type addCCRequest struct {
 // This struct is what we return after inserting into credit_cards.
 type creditCardResponse struct {
 	ID                 int    `json:"id"`
-	StripePaymentMthID string `json:"stripe_pm_id"`
+	StripePaymentMthID string `json:"stripe_payment_method_id"`
 	Brand              string `json:"brand"`
 	Last4              string `json:"last4"`
 	ExpMonth           int    `json:"exp_month"`
@@ -30,7 +31,7 @@ type creditCardResponse struct {
 // addCreditCardHandler attaches a Stripe PaymentMethod to the user’s Stripe Customer,
 // then saves metadata in our `credit_cards` table.
 func addCreditCardHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decode request JSON
+	// Decode request JSON
 	var req addCCRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
@@ -43,7 +44,7 @@ func addCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Extract logged-in user_id from context
+	// Extract logged-in user_id from context
 	ctx := r.Context()
 	uidVal := ctx.Value("user_id")
 	if uidVal == nil {
@@ -56,7 +57,7 @@ func addCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Fetch the user's email and existing stripe_customer_id
+	// Fetch the user's email and existing stripe_customer_id
 	var stripeCustID sql.NullString
 	var userEmail string
 	row := db.QueryRow(
@@ -72,7 +73,7 @@ func addCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. If stripe_customer_id is empty, create a Stripe Customer and update users
+	// If stripe_customer_id is empty, create a Stripe Customer and update users
 	customerID := stripeCustID.String
 	if !stripeCustID.Valid || stripeCustID.String == "" {
 		// Create a new Stripe Customer
@@ -97,7 +98,7 @@ func addCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 5. Attach the PaymentMethod to that Stripe Customer
+	// Attach the PaymentMethod to that Stripe Customer
 	attachParams := &stripe.PaymentMethodAttachParams{
 		Customer: stripe.String(customerID),
 	}
@@ -106,13 +107,12 @@ func addCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		attachParams,
 	)
 	if err != nil {
-		// Stripe might return an error if PM is invalid or already attached
+		// if PM is invalid or already attached
 		http.Error(w, "Failed to attach payment method: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// 6. Extract card details from the returned PaymentMethod object
-	//    (We know it’s a card PaymentMethod because we passed pm_…)
+	// Extract card details from the returned PaymentMethod object
 	card := pm.Card
 	brand := ""
 	last4 := ""
@@ -125,21 +125,29 @@ func addCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		expYear = int(card.ExpYear)
 	}
 
-	// 7. Insert into credit_cards table
+	// Insert into credit_cards table
 	var newID int
+	insertQuery := `
+  INSERT INTO credit_cards
+    (user_id, stripe_payment_method_id, brand, last4, exp_month, exp_year)
+  VALUES ($1, $2, $3, $4, $5, $6)
+  RETURNING id;
+  `
 	err = db.QueryRow(
-		`INSERT INTO credit_cards 
-       (user_id, stripe_pm_id, brand, last4, exp_month, exp_year)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id;`,
+		insertQuery,
 		userID, pm.ID, brand, last4, expMonth, expYear,
 	).Scan(&newID)
 	if err != nil {
+		// Log the full error and the attempted query values
+		log.Printf(
+			"ERROR inserting credit_card row: %v\n   Query: %s\n   Values: userID=%d, pm.ID=%q, brand=%q, last4=%q, expMonth=%d, expYear=%d\n",
+			err, insertQuery, userID, pm.ID, brand, last4, expMonth, expYear,
+		)
 		http.Error(w, "Failed to save credit card", http.StatusInternalServerError)
 		return
 	}
 
-	// 8. Return the new credit card record as JSON
+	// Return the new credit card record as JSON
 	resp := creditCardResponse{
 		ID:                 newID,
 		StripePaymentMthID: pm.ID,
@@ -154,7 +162,7 @@ func addCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteCreditCardHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Extract logged-in user_id from context
+	// Extract logged-in user_id from context
 	ctx := r.Context()
 	uidVal := ctx.Value("user_id")
 	if uidVal == nil {
@@ -167,7 +175,7 @@ func deleteCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Parse {card_id} from URL
+	// Parse {card_id} from URL
 	vars := mux.Vars(r)
 	cardIDStr := vars["card_id"]
 	cardID, err := strconv.Atoi(cardIDStr)
@@ -176,10 +184,10 @@ func deleteCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Look up that credit_card row to ensure it belongs to this user, and get the Stripe PM ID
+	// Look up that credit_card row to ensure it belongs to this user, and get the Stripe PM ID
 	var stripePMID string
 	row := db.QueryRow(
-		`SELECT stripe_pm_id 
+		`SELECT stripe_payment_method_id 
        FROM credit_cards 
       WHERE id = $1 AND user_id = $2;`,
 		cardID, userID,
@@ -193,7 +201,7 @@ func deleteCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Detach the PaymentMethod in Stripe
+	// Detach the PaymentMethod in Stripe
 	_, err = paymentmethod.Detach(stripePMID, nil)
 	if err != nil {
 		// It’s possible this PM was already detached; you could choose to ignore certain errors,
@@ -202,7 +210,7 @@ func deleteCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 5. Delete the row from credit_cards
+	// Delete the row from credit_cards
 	res, err := db.Exec(
 		`DELETE FROM credit_cards WHERE id = $1;`,
 		cardID,
@@ -217,11 +225,11 @@ func deleteCreditCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rowsAffected == 0 {
-		// This should not happen, since we already SELECTed it above. But just in case:
+		// Just in case
 		http.Error(w, "Credit card not found", http.StatusNotFound)
 		return
 	}
 
-	// 6. Return 204 No Content
+	// Return 204 No Content
 	w.WriteHeader(http.StatusNoContent)
 }
