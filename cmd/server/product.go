@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	_ "github.com/gorilla/mux" //registering the driver
+	_ "github.com/gorilla/mux" // Registering the driver
 )
 
 type Product struct {
