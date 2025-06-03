@@ -4,7 +4,7 @@ HTTP Web Server for Users and Products Management
 
 ---
 
-## 🛠 Setup and Run Instructions
+## Setup and Run Instructions
 
 ### Prerequisites
 - Go  
@@ -54,7 +54,7 @@ STRIPE_SECRET_KEY=<your_stripe_test_key>
 
 ---
 
-## 🗃 Database Schema (Postgres)
+## Database Schema (Postgres)
 
 - `users` (id, username, email, password_hash, stripe_customer_id, created_at)  
 - `admins` (user_id)  
@@ -97,6 +97,6 @@ STRIPE_SECRET_KEY=<your_stripe_test_key>
 
 ---
 
-## 🔗 Postman Collection Link
+## Postman Collection Link
 
 [Open Postman Collection](https://postman.co/workspace/My-Workspace~61498fee-56fb-46b3-8468-f0f8e28a7135/collection/45502323-6c201d3f-c6a9-4555-9183-502f4e4e90b6?action=share&creator=45502323)
